@@ -9,7 +9,6 @@
 package org.opensearch.telemetry.tracing.channels;
 
 import org.opensearch.Version;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.telemetry.tracing.Span;
 import org.opensearch.telemetry.tracing.SpanScope;
@@ -44,7 +43,9 @@ public class TraceableTcpTransportChannel extends BaseTcpTransportChannel {
     }
 
     /**
-     * Factory method.
+     * Factory method. The span is ended when the response (or the error response) is sent; nothing is attached to
+     * the underlying {@link org.opensearch.transport.TcpChannel}, which is long-lived and shared by all requests
+     * received over the connection.
      *
      * @param delegate delegate
      * @param span     span
@@ -53,20 +54,6 @@ public class TraceableTcpTransportChannel extends BaseTcpTransportChannel {
      */
     public static TransportChannel create(TcpTransportChannel delegate, final Span span, final Tracer tracer) {
         if (tracer.isRecording() == true) {
-            delegate.getChannel().addCloseListener(new ActionListener<Void>() {
-                @Override
-                public void onResponse(Void unused) {
-                    onFailure(null);
-                }
-
-                @Override
-                public void onFailure(Exception e) {
-                    span.addEvent("The TransportChannel was closed without sending the response");
-                    span.setError(e);
-                    span.endSpan();
-                }
-            });
-
             return new TraceableTcpTransportChannel(delegate, span, tracer);
         } else {
             return delegate;
